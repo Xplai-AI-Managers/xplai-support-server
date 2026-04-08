@@ -188,29 +188,13 @@ async function getAIReply(fromEmail, text) {
 async function sendReply(to, subject, text) {
   const reSubject = subject.startsWith('Re:') ? subject : `Re: ${subject}`;
 
-  if (RESEND_KEY) {
-    try {
-      await resend.emails.send({
-        to,
-        from: 'Alex | xplai.eu <hello@xplai.eu>',
-        subject: reSubject,
-        text,
-      });
-      log({ action: 'EMAIL_SENT', from: to, reason: 'Resend' });
-      return;
-    } catch (e) {
-      log({ action: 'RESEND_FAIL', from: to, reason: e.message });
-    }
-  }
-
-  // Fallback: send draft via Telegram
-  await sendTelegram(
-    `📧 <b>Email не отправлен</b>\n\n` +
-    `👤 Кому: ${to}\n📋 Тема: ${reSubject}\n\n` +
-    `💬 Ответ:\n<pre>${text.substring(0, 500)}</pre>\n\n` +
-    `⚠️ Отправь вручную с hello@xplai.eu`
-  );
-  log({ action: 'TG_FALLBACK', from: to, reason: 'Resend unavailable, sent to Telegram' });
+  await resend.emails.send({
+    to,
+    from: 'Alex | xplai.eu <hello@xplai.eu>',
+    subject: reSubject,
+    text,
+  });
+  log({ action: 'EMAIL_SENT', from: to, reason: 'Resend' });
 }
 
 // ─── Process a single email ──────────────────────────────
