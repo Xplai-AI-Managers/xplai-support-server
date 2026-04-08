@@ -204,6 +204,13 @@ async function sendReply(to, subject, text) {
 // ─── Process a single email ──────────────────────────────
 const processedUIDs = new Set();
 let stats = { processed: 0, replied: 0, spam: 0, skipped: 0, errors: 0, startedAt: Date.now() };
+const recentLog = [];
+function log(entry) {
+  const item = { time: new Date().toISOString(), ...entry };
+  recentLog.push(item);
+  if (recentLog.length > 50) recentLog.shift();
+  console.log(`[${item.action}] ${item.from || ''} ${item.reason || item.subject || ''}`);
+}
 
 async function processEmail(parsed, uid) {
   if (processedUIDs.has(uid)) return;
@@ -225,12 +232,12 @@ async function processEmail(parsed, uid) {
   const text    = parsed.text || '';       // text/plain only — no attachments
   const headers = parsed.headers || {};
 
-  console.log(`[MAIL] From: ${fromAddr} | Subject: ${subject}`);
+  log({ action: 'MAIL', from: fromAddr, subject });
 
   // 1. Spam score check
   const spamScore = getSpamScore(headers);
   if (spamScore >= 5.0) {
-    console.log(`[SPAM] X-Spam-Score ${spamScore} >= 5.0, skipping`);
+    log({ action: 'SPAM', from: fromAddr, reason: `X-Spam-Score ${spamScore} >= 5.0` });
     stats.spam++;
     return;
   }
@@ -238,32 +245,31 @@ async function processEmail(parsed, uid) {
   // 2. Spam pattern check
   const spamReason = isSpam(fromAddr, subject, text);
   if (spamReason) {
-    console.log(`[SPAM] ${spamReason}, skipping`);
+    log({ action: 'SPAM', from: fromAddr, reason: spamReason });
     stats.spam++;
     return;
   }
 
   // 3. Don't reply to own emails
   if (fromAddr.includes('xplai.eu') || fromAddr.includes('noreply')) {
-    console.log('[SKIP] Own email or noreply');
+    log({ action: 'SKIP', from: fromAddr, reason: 'own email or noreply' });
     stats.skipped++;
     return;
   }
 
-  // 4. Relevance check removed — reply to all non-spam emails from real people
-
-  // 5. Get AI reply and send
+  // 4. Reply to all non-spam emails from real people
   try {
     const reply = await getAIReply(fromAddr, text.substring(0, 2000));
     await sendReply(fromAddr, subject, reply);
     stats.replied++;
+    log({ action: 'REPLIED', from: fromAddr, subject });
 
-    // 6. Log lead to CRM + notify boss
+    // 5. Log lead to CRM + notify boss
     const senderName = parsed.from?.value?.[0]?.name || fromAddr;
     await appendToSheets(fromAddr, subject, text);
     await notifyBossLead(senderName, fromAddr, text);
   } catch (e) {
-    console.error('[PROCESS ERROR]', e.message);
+    log({ action: 'ERROR', from: fromAddr, reason: e.message });
     stats.errors++;
   }
 }
@@ -391,6 +397,10 @@ app.get('/stats', (req, res) => {
     processedUIDs: processedUIDs.size,
     hourlyEmailRate: hourlyEmails.length,
   });
+});
+
+app.get('/log', (req, res) => {
+  res.json(recentLog.slice(-20).reverse());
 });
 
 // ─── Start ───────────────────────────────────────────────
