@@ -1,6 +1,6 @@
 const Imap = require('imap');
 const { simpleParser } = require('mailparser');
-const nodemailer = require('nodemailer');
+const sgMail = require('@sendgrid/mail');
 const Anthropic = require('@anthropic-ai/sdk');
 const { google } = require('googleapis');
 const express = require('express');
@@ -11,8 +11,8 @@ process.on('uncaughtException', (err) => console.error('[uncaughtException]', er
 // ─── Config ──────────────────────────────────────────────
 const IMAP_HOST     = process.env.IMAP_HOST || 'imap.porkbun.com';
 const IMAP_PORT     = parseInt(process.env.IMAP_PORT || '993');
-const SMTP_HOST     = process.env.SMTP_HOST || 'smtp.porkbun.com';
-const SMTP_PORT     = parseInt(process.env.SMTP_PORT || '465');
+const SENDGRID_KEY  = process.env.SENDGRID_API_KEY;
+sgMail.setApiKey(SENDGRID_KEY || '');
 const EMAIL_USER    = process.env.EMAIL_USER || 'hello@xplai.eu';
 const EMAIL_PASS    = process.env.EMAIL_PASS;
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
@@ -108,24 +108,7 @@ function addToConversation(email, role, content) {
 }
 
 // ─── SMTP transporter ────────────────────────────────────
-// Try multiple SMTP configs — Railway may block some ports
-function createTransporter(port, secure) {
-  return nodemailer.createTransport({
-    host: SMTP_HOST,
-    port,
-    secure,
-    auth: { user: EMAIL_USER, pass: EMAIL_PASS },
-    tls: { rejectUnauthorized: false },
-    connectionTimeout: 15000,
-    greetingTimeout: 10000,
-    socketTimeout: 20000,
-  });
-}
-const transporters = [
-  createTransporter(465, true),
-  createTransporter(587, false),
-  createTransporter(2525, false),
-];
+// SendGrid HTTP API — no SMTP ports needed
 
 // ─── Telegram helper ─────────────────────────────────────
 async function sendTelegram(text) {
@@ -204,32 +187,31 @@ async function getAIReply(fromEmail, text) {
 // ─── Send email reply ────────────────────────────────────
 async function sendReply(to, subject, text) {
   const reSubject = subject.startsWith('Re:') ? subject : `Re: ${subject}`;
-  const mailOpts = {
-    from: `"Alex | xplai.eu" <${EMAIL_USER}>`,
-    to,
-    subject: reSubject,
-    text,
-  };
 
-  // Try each SMTP transport
-  for (let i = 0; i < transporters.length; i++) {
+  if (SENDGRID_KEY) {
     try {
-      await transporters[i].sendMail(mailOpts);
-      log({ action: 'SMTP_OK', from: to, reason: `port ${transporters[i].options.port}` });
+      await sgMail.send({
+        to,
+        from: { email: EMAIL_USER, name: 'Alex | xplai.eu' },
+        subject: reSubject,
+        text,
+      });
+      log({ action: 'EMAIL_SENT', from: to, reason: 'SendGrid' });
       return;
     } catch (e) {
-      log({ action: 'SMTP_FAIL', from: to, reason: `port ${transporters[i].options.port}: ${e.message}` });
+      const msg = e.response?.body?.errors?.[0]?.message || e.message;
+      log({ action: 'SENDGRID_FAIL', from: to, reason: msg });
     }
   }
 
-  // All SMTP failed — send draft via Telegram so boss can reply manually
+  // Fallback: send draft via Telegram
   await sendTelegram(
-    `📧 <b>SMTP заблокирован — ответ не отправлен!</b>\n\n` +
+    `📧 <b>Email не отправлен — нет SendGrid</b>\n\n` +
     `👤 Кому: ${to}\n📋 Тема: ${reSubject}\n\n` +
-    `💬 Текст ответа:\n<pre>${text.substring(0, 500)}</pre>\n\n` +
+    `💬 Ответ:\n<pre>${text.substring(0, 500)}</pre>\n\n` +
     `⚠️ Отправь вручную с hello@xplai.eu`
   );
-  log({ action: 'SMTP_FALLBACK', from: to, reason: 'All SMTP ports blocked, sent to Telegram' });
+  log({ action: 'TG_FALLBACK', from: to, reason: 'SendGrid unavailable, sent to Telegram' });
 }
 
 // ─── Process a single email ──────────────────────────────
