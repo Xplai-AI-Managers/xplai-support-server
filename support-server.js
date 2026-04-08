@@ -185,14 +185,38 @@ async function getAIReply(fromEmail, text) {
 }
 
 // ─── Send email reply ────────────────────────────────────
-async function sendReply(to, subject, text) {
+const TEXT_SIG = `\n\n---\nС уважением,\nАлекс | Менеджер xplai.eu\nhello@xplai.eu\nxplai.eu\nAI Managers for Business 24/7`;
+
+function buildHtml(body) {
+  const escaped = body.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+  return `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;color:#222;line-height:1.6;max-width:600px;">
+  <p>${escaped}</p>
+  <table cellpadding="0" cellspacing="0" border="0" style="margin-top:24px;border-top:1px solid #e0e0e0;padding-top:16px;">
+    <tr>
+      <td style="padding-right:16px;vertical-align:top;">
+        <img src="https://xplai.eu/logo.png" alt="Xplai" width="120" style="display:block;border-radius:8px;">
+      </td>
+      <td style="vertical-align:top;font-size:13px;color:#555;line-height:1.5;">
+        <strong style="color:#222;font-size:14px;">Алекс</strong><br>
+        Менеджер xplai.eu<br>
+        <a href="mailto:hello@xplai.eu" style="color:#534AB7;text-decoration:none;">hello@xplai.eu</a><br>
+        <a href="https://xplai.eu" style="color:#534AB7;text-decoration:none;">xplai.eu</a><br>
+        <span style="color:#888;">🤖 AI Managers for Business 24/7</span>
+      </td>
+    </tr>
+  </table>
+</div>`;
+}
+
+async function sendReply(to, subject, body) {
   const reSubject = subject.startsWith('Re:') ? subject : `Re: ${subject}`;
 
   await resend.emails.send({
     to,
     from: 'Alex | xplai.eu <hello@xplai.eu>',
     subject: reSubject,
-    text,
+    text: body + TEXT_SIG,
+    html: buildHtml(body),
   });
   log({ action: 'EMAIL_SENT', from: to, reason: 'Resend' });
 }
