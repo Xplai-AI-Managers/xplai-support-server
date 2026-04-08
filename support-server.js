@@ -250,12 +250,7 @@ async function processEmail(parsed, uid) {
     return;
   }
 
-  // 4. Relevance check
-  if (!isRelevant(subject, text)) {
-    console.log('[SKIP] Not relevant — no keywords found');
-    stats.skipped++;
-    return;
-  }
+  // 4. Relevance check removed — reply to all non-spam emails from real people
 
   // 5. Get AI reply and send
   try {
