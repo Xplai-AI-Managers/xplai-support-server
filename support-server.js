@@ -269,8 +269,8 @@ async function processEmail(parsed, uid) {
     return;
   }
 
-  // 3. Don't reply to own emails
-  if (fromAddr.includes('xplai.eu') || fromAddr.includes('noreply')) {
+  // 3. Don't reply to own emails or service emails
+  if (fromAddr.includes('xplai.eu') || fromAddr.includes('noreply') || fromAddr.includes('resend.com')) {
     log({ action: 'SKIP', from: fromAddr, reason: 'own email or noreply' });
     stats.skipped++;
     return;
