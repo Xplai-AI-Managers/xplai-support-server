@@ -12,7 +12,7 @@ process.on('uncaughtException', (err) => console.error('[uncaughtException]', er
 const IMAP_HOST     = process.env.IMAP_HOST || 'imap.porkbun.com';
 const IMAP_PORT     = parseInt(process.env.IMAP_PORT || '993');
 const SMTP_HOST     = process.env.SMTP_HOST || 'smtp.porkbun.com';
-const SMTP_PORT     = parseInt(process.env.SMTP_PORT || '587');
+const SMTP_PORT     = parseInt(process.env.SMTP_PORT || '465');
 const EMAIL_USER    = process.env.EMAIL_USER || 'hello@xplai.eu';
 const EMAIL_PASS    = process.env.EMAIL_PASS;
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
@@ -111,8 +111,10 @@ function addToConversation(email, role, content) {
 const transporter = nodemailer.createTransport({
   host: SMTP_HOST,
   port: SMTP_PORT,
-  secure: false,
+  secure: true,
   auth: { user: EMAIL_USER, pass: EMAIL_PASS },
+  tls: { rejectUnauthorized: false },
+  connectionTimeout: 10000,
 });
 
 // ─── Telegram helper ─────────────────────────────────────
