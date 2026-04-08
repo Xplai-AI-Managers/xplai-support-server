@@ -229,7 +229,14 @@ async function processEmail(parsed, uid) {
   const from    = parsed.from?.text || '';
   const fromAddr = parsed.from?.value?.[0]?.address || from;
   const subject = parsed.subject || '';
-  const text    = parsed.text || '';       // text/plain only — no attachments
+  // Prefer text/plain; fallback: strip HTML tags; last resort: use subject
+  let text = parsed.text || '';
+  if (!text.trim() && parsed.html) {
+    text = parsed.html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  }
+  if (!text.trim()) {
+    text = subject;
+  }
   const headers = parsed.headers || {};
 
   log({ action: 'MAIL', from: fromAddr, subject });
