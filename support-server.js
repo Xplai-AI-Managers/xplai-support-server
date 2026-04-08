@@ -108,14 +108,24 @@ function addToConversation(email, role, content) {
 }
 
 // ─── SMTP transporter ────────────────────────────────────
-const transporter = nodemailer.createTransport({
-  host: SMTP_HOST,
-  port: SMTP_PORT,
-  secure: true,
-  auth: { user: EMAIL_USER, pass: EMAIL_PASS },
-  tls: { rejectUnauthorized: false },
-  connectionTimeout: 10000,
-});
+// Try multiple SMTP configs — Railway may block some ports
+function createTransporter(port, secure) {
+  return nodemailer.createTransport({
+    host: SMTP_HOST,
+    port,
+    secure,
+    auth: { user: EMAIL_USER, pass: EMAIL_PASS },
+    tls: { rejectUnauthorized: false },
+    connectionTimeout: 15000,
+    greetingTimeout: 10000,
+    socketTimeout: 20000,
+  });
+}
+const transporters = [
+  createTransporter(465, true),
+  createTransporter(587, false),
+  createTransporter(2525, false),
+];
 
 // ─── Telegram helper ─────────────────────────────────────
 async function sendTelegram(text) {
@@ -194,13 +204,32 @@ async function getAIReply(fromEmail, text) {
 // ─── Send email reply ────────────────────────────────────
 async function sendReply(to, subject, text) {
   const reSubject = subject.startsWith('Re:') ? subject : `Re: ${subject}`;
-  await transporter.sendMail({
+  const mailOpts = {
     from: `"Alex | xplai.eu" <${EMAIL_USER}>`,
     to,
     subject: reSubject,
     text,
-  });
-  console.log('[SMTP] Reply sent to:', to);
+  };
+
+  // Try each SMTP transport
+  for (let i = 0; i < transporters.length; i++) {
+    try {
+      await transporters[i].sendMail(mailOpts);
+      log({ action: 'SMTP_OK', from: to, reason: `port ${transporters[i].options.port}` });
+      return;
+    } catch (e) {
+      log({ action: 'SMTP_FAIL', from: to, reason: `port ${transporters[i].options.port}: ${e.message}` });
+    }
+  }
+
+  // All SMTP failed — send draft via Telegram so boss can reply manually
+  await sendTelegram(
+    `📧 <b>SMTP заблокирован — ответ не отправлен!</b>\n\n` +
+    `👤 Кому: ${to}\n📋 Тема: ${reSubject}\n\n` +
+    `💬 Текст ответа:\n<pre>${text.substring(0, 500)}</pre>\n\n` +
+    `⚠️ Отправь вручную с hello@xplai.eu`
+  );
+  log({ action: 'SMTP_FALLBACK', from: to, reason: 'All SMTP ports blocked, sent to Telegram' });
 }
 
 // ─── Process a single email ──────────────────────────────
