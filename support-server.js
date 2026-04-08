@@ -1,6 +1,6 @@
 const Imap = require('imap');
 const { simpleParser } = require('mailparser');
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const Anthropic = require('@anthropic-ai/sdk');
 const { google } = require('googleapis');
 const express = require('express');
@@ -11,8 +11,8 @@ process.on('uncaughtException', (err) => console.error('[uncaughtException]', er
 // ─── Config ──────────────────────────────────────────────
 const IMAP_HOST     = process.env.IMAP_HOST || 'imap.porkbun.com';
 const IMAP_PORT     = parseInt(process.env.IMAP_PORT || '993');
-const GMAIL_USER    = process.env.GMAIL_USER || 'rok916695@gmail.com';
-const GMAIL_APP_PASS = process.env.GMAIL_APP_PASSWORD;
+const RESEND_KEY    = process.env.RESEND_API_KEY;
+const resend = new Resend(RESEND_KEY || '');
 const EMAIL_USER    = process.env.EMAIL_USER || 'hello@xplai.eu';
 const EMAIL_PASS    = process.env.EMAIL_PASS;
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
@@ -108,13 +108,7 @@ function addToConversation(email, role, content) {
 }
 
 // ─── SMTP transporter ────────────────────────────────────
-// Gmail SMTP relay — works on Railway (port 587 to Google is not blocked)
-const transporter = GMAIL_APP_PASS ? nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 587,
-  secure: false,
-  auth: { user: GMAIL_USER, pass: GMAIL_APP_PASS },
-}) : null;
+// Resend HTTP API — no SMTP ports needed
 
 // ─── Telegram helper ─────────────────────────────────────
 async function sendTelegram(text) {
@@ -194,19 +188,18 @@ async function getAIReply(fromEmail, text) {
 async function sendReply(to, subject, text) {
   const reSubject = subject.startsWith('Re:') ? subject : `Re: ${subject}`;
 
-  if (transporter) {
+  if (RESEND_KEY) {
     try {
-      await transporter.sendMail({
-        from: `"Alex | xplai.eu" <${GMAIL_USER}>`,
-        replyTo: EMAIL_USER,
+      await resend.emails.send({
         to,
+        from: 'Alex | xplai.eu <hello@xplai.eu>',
         subject: reSubject,
         text,
       });
-      log({ action: 'EMAIL_SENT', from: to, reason: 'Gmail SMTP' });
+      log({ action: 'EMAIL_SENT', from: to, reason: 'Resend' });
       return;
     } catch (e) {
-      log({ action: 'GMAIL_FAIL', from: to, reason: e.message });
+      log({ action: 'RESEND_FAIL', from: to, reason: e.message });
     }
   }
 
@@ -217,7 +210,7 @@ async function sendReply(to, subject, text) {
     `💬 Ответ:\n<pre>${text.substring(0, 500)}</pre>\n\n` +
     `⚠️ Отправь вручную с hello@xplai.eu`
   );
-  log({ action: 'TG_FALLBACK', from: to, reason: 'Gmail unavailable, sent to Telegram' });
+  log({ action: 'TG_FALLBACK', from: to, reason: 'Resend unavailable, sent to Telegram' });
 }
 
 // ─── Process a single email ──────────────────────────────
