@@ -38,6 +38,12 @@ Step 1 — Greet: introduce yourself, ask about their business.
 Step 2 — Qualify (one question at a time): What business? How many messages/day? Pain point?
 Step 3 — Propose (only after qualifying): recommend a plan, offer a demo.
 
+DEMO OPTIONS (NO video calls):
+- WhatsApp chat: +370 630 67364
+- Demo video sent by email
+- Answer any questions by email
+Never offer video calls or Zoom/Google Meet.
+
 OBJECTIONS:
 "Too expensive" → "1 missed client = €50. Agent €89/mo = 2 days payback."
 "Want free" → "Setup includes first month — that IS the trial."
@@ -193,19 +199,17 @@ const TEXT_SIG = `\n\n---\nС уважением,\nАлекс | Менеджер
 
 function buildHtml(body) {
   const escaped = body.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
-  return `<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;font-size:15px;color:#222;line-height:1.6;max-width:600px;">
+  return `<div style="font-family:Arial,sans-serif;font-size:15px;color:#222;line-height:1.6;max-width:600px;">
   <p>${escaped}</p>
-  <table cellpadding="0" cellspacing="0" border="0" style="margin-top:24px;border-top:1px solid #e0e0e0;padding-top:16px;">
+  <br><br>
+  <hr style="border:none;border-top:1px solid #eee;margin:20px 0">
+  <table cellpadding="0" cellspacing="0">
     <tr>
-      <td style="padding-right:16px;vertical-align:top;">
-        <img src="https://xplai.eu/logo.png" alt="Xplai" width="120" style="display:block;border-radius:8px;">
-      </td>
-      <td style="vertical-align:top;font-size:13px;color:#555;line-height:1.5;">
-        <strong style="color:#222;font-size:14px;">Алекс</strong><br>
-        Менеджер xplai.eu<br>
-        <a href="mailto:hello@xplai.eu" style="color:#534AB7;text-decoration:none;">hello@xplai.eu</a><br>
-        <a href="https://xplai.eu" style="color:#534AB7;text-decoration:none;">xplai.eu</a><br>
-        <span style="color:#888;">🤖 AI Managers for Business 24/7</span>
+      <td><img src="https://xplai.eu/logo.png" width="80" alt="Xplai" style="display:block"></td>
+      <td style="padding-left:14px;font-family:Arial,sans-serif;font-size:13px;color:#333;vertical-align:middle">
+        <strong style="color:#534AB7;font-size:14px">Алекс</strong> | Менеджер xplai.eu<br>
+        &#128231; hello@xplai.eu &nbsp;|&nbsp; &#127760; xplai.eu<br>
+        <span style="color:#999;font-size:11px">AI Managers for Business 24/7</span>
       </td>
     </tr>
   </table>
