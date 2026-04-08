@@ -1,6 +1,6 @@
 const Imap = require('imap');
 const { simpleParser } = require('mailparser');
-const sgMail = require('@sendgrid/mail');
+const { Resend } = require('resend');
 const Anthropic = require('@anthropic-ai/sdk');
 const { google } = require('googleapis');
 const express = require('express');
@@ -11,8 +11,8 @@ process.on('uncaughtException', (err) => console.error('[uncaughtException]', er
 // ─── Config ──────────────────────────────────────────────
 const IMAP_HOST     = process.env.IMAP_HOST || 'imap.porkbun.com';
 const IMAP_PORT     = parseInt(process.env.IMAP_PORT || '993');
-const SENDGRID_KEY  = process.env.SENDGRID_API_KEY;
-sgMail.setApiKey(SENDGRID_KEY || '');
+const RESEND_KEY    = process.env.RESEND_API_KEY;
+const resend = new Resend(RESEND_KEY || '');
 const EMAIL_USER    = process.env.EMAIL_USER || 'hello@xplai.eu';
 const EMAIL_PASS    = process.env.EMAIL_PASS;
 const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY;
@@ -188,30 +188,29 @@ async function getAIReply(fromEmail, text) {
 async function sendReply(to, subject, text) {
   const reSubject = subject.startsWith('Re:') ? subject : `Re: ${subject}`;
 
-  if (SENDGRID_KEY) {
+  if (RESEND_KEY) {
     try {
-      await sgMail.send({
+      await resend.emails.send({
         to,
-        from: { email: EMAIL_USER, name: 'Alex | xplai.eu' },
+        from: 'Alex | xplai.eu <hello@xplai.eu>',
         subject: reSubject,
         text,
       });
-      log({ action: 'EMAIL_SENT', from: to, reason: 'SendGrid' });
+      log({ action: 'EMAIL_SENT', from: to, reason: 'Resend' });
       return;
     } catch (e) {
-      const msg = e.response?.body?.errors?.[0]?.message || e.message;
-      log({ action: 'SENDGRID_FAIL', from: to, reason: msg });
+      log({ action: 'RESEND_FAIL', from: to, reason: e.message });
     }
   }
 
   // Fallback: send draft via Telegram
   await sendTelegram(
-    `📧 <b>Email не отправлен — нет SendGrid</b>\n\n` +
+    `📧 <b>Email не отправлен — нет Resend API</b>\n\n` +
     `👤 Кому: ${to}\n📋 Тема: ${reSubject}\n\n` +
     `💬 Ответ:\n<pre>${text.substring(0, 500)}</pre>\n\n` +
     `⚠️ Отправь вручную с hello@xplai.eu`
   );
-  log({ action: 'TG_FALLBACK', from: to, reason: 'SendGrid unavailable, sent to Telegram' });
+  log({ action: 'TG_FALLBACK', from: to, reason: 'Resend unavailable, sent to Telegram' });
 }
 
 // ─── Process a single email ──────────────────────────────
