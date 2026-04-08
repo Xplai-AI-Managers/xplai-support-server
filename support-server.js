@@ -311,27 +311,29 @@ function checkMail() {
   imap.once('ready', () => {
     imap.openBox('INBOX', false, (err, box) => {
       if (err) {
-        console.error('[IMAP] openBox error:', err.message);
+        log({ action: 'IMAP_ERROR', reason: 'openBox: ' + err.message });
         imap.end();
         return;
       }
 
+      log({ action: 'IMAP_CHECK', reason: `total: ${box.messages.total}, unseen: ${box.messages.new || 0}` });
+
       // Search for unseen messages
       imap.search(['UNSEEN'], (err, uids) => {
         if (err) {
-          console.error('[IMAP] search error:', err.message);
+          log({ action: 'IMAP_ERROR', reason: 'search: ' + err.message });
           imap.end();
           return;
         }
 
         if (!uids || uids.length === 0) {
-          console.log('[IMAP] No new emails');
+          log({ action: 'IMAP_CHECK', reason: '0 unseen emails' });
           lastCheck = new Date().toISOString();
           imap.end();
           return;
         }
 
-        console.log(`[IMAP] Found ${uids.length} new email(s)`);
+        log({ action: 'IMAP_FOUND', reason: `${uids.length} unseen email(s)` });
         let pending = uids.length;
 
         const f = imap.fetch(uids, {
@@ -366,7 +368,7 @@ function checkMail() {
   });
 
   imap.once('error', (err) => {
-    console.error('[IMAP error]', err.message);
+    log({ action: 'IMAP_ERROR', reason: err.message });
   });
 
   imap.once('end', () => {
